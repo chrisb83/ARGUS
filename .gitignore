@@ -1,3 +1,9 @@
+img/
+code/unuran/
+*.c
+*.html
+*.tex
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
