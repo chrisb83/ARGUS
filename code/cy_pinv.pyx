@@ -1,3 +1,6 @@
+# -----------------------------------------------------------------------------
+# implementation of ARGUS generators - numerical inversion
+# -----------------------------------------------------------------------------
 import numpy as np
 cimport numpy as np
 cimport cpinv
@@ -10,37 +13,9 @@ from numpy.random import PCG64
 from scipy.special cimport cython_special
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
-def rvs_gammaincinv(double chi, Py_ssize_t size=1):
-    cdef double u, ub, c, y
-    cdef Py_ssize_t i
-    cdef bitgen_t *rng
-    cdef const char *capsule_name = "BitGenerator"
-    cdef double[::1] random_values
-
-    # compute P[gamma(1.5) <= chi**2/2]
-    ub = chi*chi / 2.0
-    c = cython_special.gammainc(1.5, ub)
-
-    x = PCG64()
-    capsule = x.capsule
-    # Optional check that the capsule if from a BitGenerator
-    if not PyCapsule_IsValid(capsule, capsule_name):
-        raise ValueError("Invalid pointer to anon_func_state")
-    # Cast the pointer
-    rng = <bitgen_t *> PyCapsule_GetPointer(capsule, capsule_name)
-    random_values = np.empty(size, dtype='float64')
-
-    # generate ARGUS(chi) rvs by transforming conditioned Gamma rvs
-    for i in range(size):
-        u = rng.next_double(rng.state)
-        y = cython_special.gammaincinv(1.5, c*u)
-        random_values[i] = math.sqrt(1.0 - y/ub)
-
-    return np.asarray(random_values)    
-
+# -----------------------------------------------------------------------------
+# PINV (UNU.RAN)
+# -----------------------------------------------------------------------------
 
 cdef class argus_pinv:
     cdef cpinv.UNUR_DISTR * _distr
@@ -92,6 +67,10 @@ cdef class argus_pinv:
         return np.asarray(random_values)
 
 
+# -----------------------------------------------------------------------------
+# HINV (UNU.RAN)
+# -----------------------------------------------------------------------------
+
 cdef class argus_hinv:
     cdef cpinv.UNUR_DISTR * _distr
     cdef cpinv.UNUR_PAR * _par
@@ -140,3 +119,39 @@ cdef class argus_hinv:
             random_values[i] = math.sqrt(1.0 - y/ub)
 
         return np.asarray(random_values)
+
+
+# -----------------------------------------------------------------------------
+# (slow) approach using inverse of Gamma CDF gammaincinv
+# -----------------------------------------------------------------------------
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.cdivision(True)
+def rvs_gammaincinv(double chi, Py_ssize_t size=1):
+    cdef double u, ub, c, y
+    cdef Py_ssize_t i
+    cdef bitgen_t *rng
+    cdef const char *capsule_name = "BitGenerator"
+    cdef double[::1] random_values
+
+    # compute P[gamma(1.5) <= chi**2/2]
+    ub = chi*chi / 2.0
+    c = cython_special.gammainc(1.5, ub)
+
+    x = PCG64()
+    capsule = x.capsule
+    # Optional check that the capsule if from a BitGenerator
+    if not PyCapsule_IsValid(capsule, capsule_name):
+        raise ValueError("Invalid pointer to anon_func_state")
+    # Cast the pointer
+    rng = <bitgen_t *> PyCapsule_GetPointer(capsule, capsule_name)
+    random_values = np.empty(size, dtype='float64')
+
+    # generate ARGUS(chi) rvs by transforming conditioned Gamma rvs
+    for i in range(size):
+        u = rng.next_double(rng.state)
+        y = cython_special.gammaincinv(1.5, c*u)
+        random_values[i] = math.sqrt(1.0 - y/ub)
+
+    return np.asarray(random_values)
