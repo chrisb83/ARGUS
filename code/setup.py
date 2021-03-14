@@ -22,6 +22,13 @@ ext_modules = [
         libraries=["unuran"],
         library_dirs=["/home/christoph/Documents/scipydev/ARGUS/code/unuran/lib"],
         include_dirs=["/home/christoph/Documents/scipydev/ARGUS/code/unuran/include",
+                      numpy.get_include()]),
+    Extension(
+        name="test_varying",
+        sources=["test_varying.pyx"],
+        libraries=["unuran"],
+        library_dirs=["/home/christoph/Documents/scipydev/ARGUS/code/unuran/lib"],
+        include_dirs=["/home/christoph/Documents/scipydev/ARGUS/code/unuran/include",
                       numpy.get_include()])
 ]
 
