@@ -75,7 +75,7 @@ cdef class argus_pinv:
     @cython.wraparound(False)
     @cython.cdivision(True)
     def rvs(self, double chi, Py_ssize_t size=1):
-        cdef double u, ub, c, y, v
+        cdef double u, ub, c, y, v = 0
         cdef Py_ssize_t i
         cdef bitgen_t *rng
         cdef const char *capsule_name = "BitGenerator"
@@ -105,6 +105,7 @@ cdef class argus_pinv:
             u = rng.next_double(rng.state)
             if chi <= 0.01:
                 y = ub * math.pow(u, 2./3.)
+                # y = ub * math.exp((2./3.)*math.log(u))
                 if chi > 1.e-5:
                     # do a single Newton iteration
                     ey = 1.0 + y*(1.0 + y*(0.5 + y/6.0))
@@ -252,6 +253,144 @@ cdef class argus_pinv:
             x2 = cython_special.gammaincinv(1.5, c*u)
             uerr[i] = math.fabs(x1 - x2)
         return np.array(uerr)
+
+
+# -----------------------------------------------------------------------------
+# PINV (UNU.RAN) for fixed parameter case
+# -----------------------------------------------------------------------------
+
+cdef class argus_pinv_fixed:
+    cdef cpinv.UNUR_DISTR * _distr
+    cdef cpinv.UNUR_PAR * _par
+    cdef cpinv.UNUR_GEN * _gen
+    cdef double ub
+
+    def __cinit__(self, double chi, double uerror=1.e-10):
+        cdef double[1] param
+        param[0] = 1.5
+
+        if chi <= 0:
+            raise ValueError('chi must be > 0')
+
+        self.ub = chi*chi/2.0
+        # generator for Gamma rvs conditional on [0, chi^2 / 2]
+        self._distr = cpinv.unur_distr_gamma(param, 1)
+        cpinv.unur_distr_cont_set_domain(self._distr, 0.0, self.ub)
+        self._par = cpinv.unur_pinv_new(self._distr)
+        cpinv.unur_pinv_set_u_resolution(self._par, uerror)
+        self._gen = cpinv.unur_init(self._par)
+        if self._gen == NULL:
+            raise RuntimeError('Failed to create UNURAN generator')
+
+
+    def __dealloc__(self):
+        if self._gen is not NULL:
+            cpinv.unur_free(self._gen)
+
+
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    def rvs(self, Py_ssize_t size=1):
+        cdef double u, y
+        cdef Py_ssize_t i
+        cdef bitgen_t *rng
+        cdef const char *capsule_name = "BitGenerator"
+        cdef double[::1] random_values
+        cdef int steps
+
+        x = PCG64()
+        capsule = x.capsule
+        # Optional check that the capsule if from a BitGenerator
+        if not PyCapsule_IsValid(capsule, capsule_name):
+            raise ValueError("Invalid pointer to anon_func_state")
+        # Cast the pointer
+        rng = <bitgen_t *> PyCapsule_GetPointer(capsule, capsule_name)
+        random_values = np.empty(size, dtype='float64')
+
+        # generate ARGUS(chi) rvs by transforming conditioned Gamma rvs
+        for i in range(size):
+            u = rng.next_double(rng.state)
+            y = cpinv.unur_pinv_eval_approxinvcdf(self._gen, u)
+            random_values[i] = math.sqrt(1.0 - y/self.ub)
+
+        return np.asarray(random_values)
+
+
+
+# -----------------------------------------------------------------------------
+# PINV (UNU.RAN) for fixed parameter case using the ARGUS density
+# -----------------------------------------------------------------------------
+
+cdef double argus_quasipdf(double x, const cpinv.UNUR_DISTR *distr):
+    # return value proportional to the ARGUS PDF
+    # normalizing constants are ignored
+    cdef double y, chi
+    cdef const double *fpar
+    cdef int npar
+    if x >= 1.0 or x <= 0.0:
+        return 0.0
+    npar = cpinv.unur_distr_cont_get_pdfparams(distr, &fpar)
+    chi = fpar[0]
+    y = 1 - x*x
+    return x * math.sqrt(y) * math.exp(-0.5*chi*chi*y)
+
+cdef class argus_pinv_fixed_direct:
+    cdef cpinv.UNUR_DISTR * _distr
+    cdef cpinv.UNUR_PAR * _par
+    cdef cpinv.UNUR_GEN * _gen
+    cdef double ub
+
+    def __cinit__(self, double chi, double uerror=1.e-10):
+        cdef double[1] param
+        param[0] = chi
+
+        if chi <= 0:
+            raise ValueError('chi must be > 0')
+
+        self._distr = cpinv.unur_distr_cont_new()
+        cpinv.unur_distr_cont_set_pdf(self._distr, argus_quasipdf)
+        cpinv.unur_distr_cont_set_pdfparams(self._distr, param, 1)
+        cpinv.unur_distr_cont_set_domain(self._distr, 0.0, 1.0)
+        self._par = cpinv.unur_pinv_new(self._distr)
+        cpinv.unur_pinv_set_u_resolution(self._par, uerror)
+        self._gen = cpinv.unur_init(self._par)
+        if self._gen == NULL:
+            raise RuntimeError('Failed to create UNURAN generator')
+
+
+    def __dealloc__(self):
+        if self._gen is not NULL:
+            cpinv.unur_free(self._gen)
+
+
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    def rvs(self, Py_ssize_t size=1):
+        cdef double u
+        cdef Py_ssize_t i
+        cdef bitgen_t *rng
+        cdef const char *capsule_name = "BitGenerator"
+        cdef double[::1] random_values
+        cdef int steps
+
+        x = PCG64()
+        capsule = x.capsule
+        # Optional check that the capsule if from a BitGenerator
+        if not PyCapsule_IsValid(capsule, capsule_name):
+            raise ValueError("Invalid pointer to anon_func_state")
+        # Cast the pointer
+        rng = <bitgen_t *> PyCapsule_GetPointer(capsule, capsule_name)
+        random_values = np.empty(size, dtype='float64')
+
+        # generate ARGUS(chi) rvs by transforming conditioned Gamma rvs
+        for i in range(size):
+            u = rng.next_double(rng.state)
+            random_values[i] = cpinv.unur_pinv_eval_approxinvcdf(self._gen, u)
+
+        return np.asarray(random_values)
+
 # -----------------------------------------------------------------------------
 # HINV (UNU.RAN)
 # -----------------------------------------------------------------------------

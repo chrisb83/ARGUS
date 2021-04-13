@@ -19,7 +19,21 @@ def time_rvs(func, args, N, rep=20, seed=None):
     return t.mean(), t.std()
 
 
-def check_runtime(fcts, chi_lst, cfg, print_output=False):
+def time_rvs_varying(func, chi, N, rep=20, seed=None):
+    if seed is not None:
+        np.random.seed(seed)
+    lst = []
+    delta = 0.01*chi
+    params = chi - delta + 2 * delta * np.random.uniform(size=N)
+    for i in range(rep):
+        tic = time.time()
+        r = func(params, size=N)
+        lst.append(time.time() - tic)
+    t = np.array(lst)
+    return t.mean(), t.std()
+
+
+def check_runtime(fcts, chi_lst, cfg, print_output=False, varying=False):
     df_lst = []
     for N in cfg.keys():
         res = {}
@@ -43,7 +57,10 @@ def check_runtime(fcts, chi_lst, cfg, print_output=False):
                 if skip:
                     m, s = -1, 0
                 else:
-                    m, s = time_rvs(fct, (chi,), N, rep=niter, seed=12345)
+                    if varying:
+                        m, s = time_rvs_varying(fct, chi, N, rep=niter, seed=12345)
+                    else:
+                        m, s = time_rvs(fct, (chi,), N, rep=niter, seed=12345)
                 res_chi[chi] = (m*1000, s*1000)
                 if print_output:
                     print("chi = {}: {} +/- {}".format(chi, round(m, 3), round(s, 3)))
@@ -62,6 +79,7 @@ def check_runtime(fcts, chi_lst, cfg, print_output=False):
         df_lst.append(df_temp)
 
     return pd.concat(df_lst)
+
 
 # taken from from scipy._lib._util
 def _lazywhere(cond, arrays, f, fillvalue=None, f2=None):

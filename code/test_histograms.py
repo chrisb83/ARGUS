@@ -13,7 +13,8 @@ from cond_gamma import rvs_cond_gamma
 from cy_rejection import rvs_rejection_xexp_cy, rvs_rejection_beta_cy
 from cy_rou_gamma import rvs_rou_gamma_cy, rvs_rou_shifted_gamma_cy
 from cy_rou_maxwell import rvs_rou_shifted_maxwell_cy, rvs_rou_maxwell_cy
-from cy_pinv import rvs_gammaincinv, argus_pinv
+from cy_pinv import (rvs_gammaincinv, argus_pinv, argus_pinv_fixed,
+                     argus_pinv_fixed_direct)
 
 chi_lst = [0.01, 0.5, 1, 1.5, 2, 2.5, 5]
 rvs_pinv = argus_pinv().rvs
@@ -49,9 +50,59 @@ for fct in fcts:
         if not skip:
             r = fct(chi, size=5000)
             x = np.linspace(0, 1, 500)
-            ax.plot(x, stats.argus.pdf(x, chi), 'r-', lw=5, alpha=0.6)
+            if chi <= 1.e-5:
+                ax.plot(x, 3*x*np.sqrt(1-x**2), 'r-', lw=5, alpha=0.6)
+            else:
+                ax.plot(x, stats.argus.pdf(x, chi), 'r-', lw=5, alpha=0.6)
             ax.hist(r, bins=50, density=True, histtype='stepfilled', alpha=0.2)
             ax.set_title('{}, chi={}'.format(fcts[fct], chi))
             plt.savefig('../img/{}_chi_{}.png'.format(fct.__name__, i))
             i += 1
             ax.clear()
+
+# test PINV with small chi
+
+fcts = {rvs_pinv: 'PINV (Gamma) - Cython'}
+chi_lst = [1e-5, 1e-4, 1e-2, 0.05, 0.5]
+fig, ax = plt.subplots(1, 1)
+for fct in fcts:
+    i = 0
+    for chi in chi_lst:
+        r = fct(chi, size=5000)
+        x = np.linspace(0, 1, 500)
+        if chi <= 1.e-5:
+            ax.plot(x, 3*x*np.sqrt(1-x**2), 'r-', lw=5, alpha=0.6)
+        else:
+            ax.plot(x, stats.argus.pdf(x, chi), 'r-', lw=5, alpha=0.6)
+        ax.hist(r, bins=50, density=True, histtype='stepfilled', alpha=0.2)
+        ax.set_title('{}, chi={}'.format(fcts[fct], chi))
+        plt.savefig('../img/{}_chi_{}.png'.format(fct.__name__, i))
+        i += 1
+        ax.clear()
+
+# test fixed parameter functions
+
+chi_lst = [1e-5, 1e-4, 1e-2, 0.5, 1.0, 5.0]
+fig, ax = plt.subplots(1, 1)
+
+for m in ['gamma', 'direct']:
+    i = 0
+    for chi in chi_lst:
+        if m == 'gamma':
+            fct = argus_pinv_fixed(chi).rvs
+            nm = 'argus_pinv_fixed'
+        elif m == 'direct':
+            fct = argus_pinv_fixed_direct(chi).rvs
+            nm = 'argus_pinv_fixed_direct'
+
+        r = fct(size=5000)
+        x = np.linspace(0, 1, 500)
+        if chi <= 1.e-5:
+            ax.plot(x, 3*x*np.sqrt(1-x**2), 'r-', lw=5, alpha=0.6)
+        else:
+            ax.plot(x, stats.argus.pdf(x, chi), 'r-', lw=5, alpha=0.6)
+        ax.hist(r, bins=50, density=True, histtype='stepfilled', alpha=0.2)
+        ax.set_title('{}, chi={}'.format(nm, chi))
+        plt.savefig('../img/{}_chi_{}.png'.format(nm, i))
+        i += 1
+        ax.clear()

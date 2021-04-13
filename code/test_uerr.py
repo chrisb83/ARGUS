@@ -15,12 +15,12 @@ import matplotlib.pyplot as plt
 
 # the u-error explodes for small values if this case is not handled separately
 
-chi_lst = [1e-4, 1e-3, 1e-2, 1e-1]
+chi_lst = [1e-2, 1e-1, 1.0]
 
-argus_gen = argus_pinv(uerror=1e-13)
-# for chi in chi_lst:
-#         uerr = argus_gen.check_uerror(chi, 1000)
-#         print('{}: {}, {}'.format(chi, np.max(uerr), np.median(uerr)))
+argus_gen = argus_pinv(uerror=1e-10)
+for chi in chi_lst:
+        uerr = argus_gen.check_uerror(chi, 100000)
+        print('{}: {}, {}'.format(chi, np.max(uerr), np.median(uerr)))
 
 
 # -----------------------------------------------------------------------------
@@ -28,9 +28,7 @@ argus_gen = argus_pinv(uerror=1e-13)
 # -----------------------------------------------------------------------------
 
 N = 100000
-#N = 3
 chi_lst = [1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 0.01, 0.1]
-#chi_lst = [1e-3]
 
 df_lst = []
 print('Test approximation...')
@@ -76,33 +74,3 @@ df.to_latex('../tables/u-x-error.tex')
 
 #expr = sympy.erf(sympy.sqrt(x)) - 2*sympy.sqrt(x)*sympy.exp(-x)/sympy.sqrt(sympy.pi)
 #sympy.series(expr.subs(x, y**2/2), y, 0, 9)
-
-# chi = 1e-4
-# lst = []
-# argus = argus_pinv()
-# for i in range(10):
-#         tic = time.time()
-#         x = argus.rvs(chi, size=1000000)
-#         lst.append(time.time() - tic)
-
-# print('{}: {}, {}'.format(chi, np.mean(lst), np.std(lst)))
-# print((np.mean(x), np.var(x)))
-
-# lst = []
-# argus = argus_pinv()
-# for i in range(10):
-#         tic = time.time()
-#         x = argus.rvs(chi, size=1000000, newton=1)
-#         lst.append(time.time() - tic)
-
-# print('{}: {}, {}'.format(chi, np.mean(lst), np.std(lst)))
-# print((np.mean(x), np.var(x)))
-
-# fig, ax = plt.subplots(1, 1)
-# r = argus.rvs(chi, size=5000)
-# x = np.linspace(0, 1, 500)
-# ax.plot(x, stats.argus.pdf(x, chi), 'r-', lw=5, alpha=0.6)
-# ax.hist(r, bins=50, density=True, histtype='stepfilled', alpha=0.2)
-# ax.set_title('chi={}'.format(chi))
-# plt.savefig('../img/approx_chi.png')
-# ax.clear()
