@@ -81,6 +81,42 @@ def check_runtime(fcts, chi_lst, cfg, print_output=False, varying=False):
     return pd.concat(df_lst)
 
 
+def check_runtime_fixed(cls_dict, chi_lst, cfg, print_output=False):
+    df_lst = []
+    for N in cfg.keys():
+        res = {}
+        niter = cfg[N]
+        if print_output:
+            print('Starting test with N={}'.format(N))
+        for cls, cls_name in cls_dict.items():
+            if print_output:
+                print(cls_name)
+            res_chi = {}
+            for chi in chi_lst:
+                # set up rvs method depending on chi. fct does not take chi
+                # as an argument, just size
+                fct = cls(chi).rvs
+                m, s = time_rvs(fct, (), N, rep=niter, seed=12345)
+                res_chi[chi] = (m*1000, s*1000)
+                if print_output:
+                    print("chi = {}: {} +/- {}".format(chi, round(m, 3), round(s, 3)))
+            res[cls_name] = res_chi
+
+        res2 = {}
+        for k, v in res.items():
+            res_temp = {}
+            for chi, v2 in v.items():
+                m, s = int(round(v2[0])), int(round(v2[1]))
+                res_temp[round(chi, 4)] = '{} +/- {}'.format(m, s)
+            res2[k] = res_temp
+        df_temp = pd.DataFrame.from_dict(res2, orient='index')
+        df_temp['N'] = N
+        df_temp['iter'] = niter
+        df_lst.append(df_temp)
+
+    return pd.concat(df_lst)
+
+
 # taken from from scipy._lib._util
 def _lazywhere(cond, arrays, f, fillvalue=None, f2=None):
     """

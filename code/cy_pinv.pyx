@@ -50,7 +50,7 @@ cdef class argus_pinv:
         if self._gen1 == NULL:
             raise RuntimeError('Failed to create UNURAN generator')
 
-        # PINV to be used for [0.01, 0.1] => conditio Gamma on 0.1**2/2
+        # PINV to be used for [0.01, 0.1] => condition Gamma on 0.1**2/2
         self._distr2 = cpinv.unur_distr_gamma(param, 1)
         cpinv.unur_distr_cont_set_domain(self._distr2, 0.0, 0.005)
         self._par2 = cpinv.unur_pinv_new(self._distr2)
@@ -59,7 +59,7 @@ cdef class argus_pinv:
         if self._gen2 == NULL:
             raise RuntimeError('Failed to create UNURAN generator')
 
-        # constants P[Gamma(1.5) <= chi**2/2] for chi in [0.1, 0.01]
+        # constants P[Gamma(1.5) <= chi**2/2] for chi = 0.1, 0.01
         self.c1 = 0.19874804309879915
         self.c2 = 0.0002651650586556101
 
