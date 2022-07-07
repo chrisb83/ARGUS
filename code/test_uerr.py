@@ -1,5 +1,5 @@
 '''
-Script to test ...
+Script to test the approximation error of PINV (u- and x-error)
 '''
 import numpy as np
 import pandas as pd
@@ -71,6 +71,3 @@ df = pd.concat(df_lst, axis=1)
 print(df)
 df.to_csv('../tables/u-x-error.csv')
 df.to_latex('../tables/u-x-error.tex')
-
-#expr = sympy.erf(sympy.sqrt(x)) - 2*sympy.sqrt(x)*sympy.exp(-x)/sympy.sqrt(sympy.pi)
-#sympy.series(expr.subs(x, y**2/2), y, 0, 9)

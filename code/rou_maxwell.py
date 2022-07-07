@@ -25,8 +25,6 @@ def rvs_rou_maxwell(chi, size=1, seed=None):
     else:
         vmax = 4 / np.exp(1)
 
-    # z = stats.rvs_ratio_uniforms(f, umax, 0, vmax, size=size)
-
     y = np.zeros(size)
     rg = default_rng(seed)
     simulated = 0

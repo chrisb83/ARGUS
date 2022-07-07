@@ -195,10 +195,8 @@ cdef class argus_pinv:
                         ey = (cython_special.gammainc(1.5, y) / c - u)
                         y = y - math.sqrt(math.pi) * c * ey / (2 * math.sqrt(y) * math.exp(-y))
                     else:
-                        ey = 1.0 + y*(1.0 + y*(0.5 + y/6.0)) # math.exp(y)
-                        #y = y*(1 + ey) - cython_special.expm1(y) - y*ey*(y/2.0 + 2.0*ub)/5.0
-                        #y = y*(ey - y/2.0) - y*ey*(y/2.0 + 2.0*ub)/5.0
-                        # y = y*(ey*(1 - 0.1*y -0.4*ub) - y/2.0) # THIS ONE
+                        # use approximation for exp as math.exp(y) is too slow
+                        ey = 1.0 + y*(1.0 + y*(0.5 + y/6.0))
                         y = y*(ey*(1.0/3.0 - 0.1*y + v) - y*(0.5 + y/6.0))
                     steps -= 1
             uerr[i] = math.fabs(u - cython_special.gammainc(1.5, y) / c)
@@ -247,7 +245,8 @@ cdef class argus_pinv:
                         ey = (cython_special.gammainc(1.5, x1) / c - u)
                         x1 = x1 - math.sqrt(math.pi) * c * ey / (2 * math.sqrt(x1) * math.exp(-x1))
                     else:
-                        ey = 1.0 + x1*(1.0 + x1*(0.5 + x1/6.0)) # math.exp(x1)
+                        # approximation for math.exp(x1)
+                        ey = 1.0 + x1*(1.0 + x1*(0.5 + x1/6.0))
                         x1 = x1*(ey*(1.0/3.0 - 0.1*x1 + v) - x1*(0.5 + x1/6.0))
                     steps -= 1
             x2 = cython_special.gammaincinv(1.5, c*u)

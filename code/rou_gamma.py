@@ -92,7 +92,6 @@ def rvs_rou_shifted_gamma(chi, size=1, seed=None):
         m = chi2 / 2
     umax, vmin, vmax = _get_rect_rou_shifted_gamma(chi)
     
-    # y = stats.rvs_ratio_uniforms(lambda x: qpdf(x, chi), umax, vmin, vmax, size=size, c=m)
     y = np.zeros(size)
     rg = default_rng(seed)
     simulated = 0
