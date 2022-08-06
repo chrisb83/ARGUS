@@ -16,6 +16,7 @@ Instructions can be found on the page https://statmath.wu.ac.at/unuran/doc/unura
 ## Information on the repository
 
 - *code* contains Python and Cython code to generate ARGUS random variates, code used to analyze the performance and to check the histograms of the samples against the density . To use the Cython code, you need to have Cython installed and to compile the pyx-file (`python setup.py build_ext --inplace`). If UNU.RAN should be use, you need to link the library before compiling the code by setting the environment variable `$LD_LIBRARY_PATH` by entering `export LD_LIBRARY_PATH=/home/.../code/unuran/lib:/usr/lib` in your command line (adjust the paths to align with your installation path of UNU.RAN)
+- *code* contains a sub-folder *simple_version* that relies on SciPy >= 1.8.0 that included UNU.RAN. It contains fast algorithms relying on Python only.
 - *tables* contains the results of the performance analysis
 - the file `env.yml` contains the Python environment used for all analysis / testing
 
