@@ -36,7 +36,7 @@ def rvs_rou_shifted_gamma_cy(double chi, Py_ssize_t size=1):
     # Cast the pointer
     rng = <bitgen_t *> PyCapsule_GetPointer(capsule, capsule_name)
     random_values = np.empty(size, dtype='float64')
-    
+
     chi2 = chi * chi
     if chi <= 1:
         m = chi2 / 2

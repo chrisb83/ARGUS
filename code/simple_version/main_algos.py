@@ -1,6 +1,7 @@
-# This is a pure Python implementation of Algorithm 1 and 2 in the article that
-# requires SciPy >= 1.8.0
+# This is a pure Python implementation of Algorithms 1, 2 and 3 in the article
+# Algorithms 1 and 2 require SciPy >= 1.8.0, Algorithm 3 does not
 # examples of how to use the algorithms are provided at the end of the file
+from http.client import UnimplementedFileMode
 import numpy as np
 import math
 from scipy import stats
@@ -36,6 +37,80 @@ class ArgusDist:
     def support(self):
         return 0, 1
 
+# -----------------------------------------------------------------------------
+# Inversion for fixed parameters (Algorithm 1)
+# -----------------------------------------------------------------------------
+
+class ArgusGamma:
+    """ This is the algorithm that can be used for fixed values of chi.
+    It is more robust than ArgusDirect for large values of chi.
+    It is the part of Algorithm 1 in the paper that is used for chi > 5.
+    """
+    def __init__(self, chi, uerror=1e-10, seed=None):
+        # set uniform random number generator. there is no need to pass it to
+        # NumericalInversePolynomial since we never use its rvs method
+        # it just allows to fix the seed of the generator used in self.rvs
+        self._urng = np.random.default_rng(seed)
+
+        if chi <= 0:
+            raise ValueError('chi must be > 0')
+        self.chi = chi
+        self.ub = chi*chi/2.0
+
+        dist = GammaDist(1.5)
+        self._gen = NumericalInversePolynomial(
+            dist,
+            domain=(0, self.ub),
+            u_resolution=uerror
+        )
+
+    def rvs(self, size=1, seed=None):
+        if seed is None:
+            rng = self._urng
+        else:
+            rng = np.random.default_rng(seed)
+        # generate ARGUS(chi) rvs by transforming conditioned Gamma rvs
+        u = rng.uniform(size=size)
+        y = self._gen.ppf(u)
+        return np.sqrt(1.0 - y/self.ub)
+
+
+class ArgusDirect:
+    """ This is the algorithm that can be used for fixed values of chi.
+    It is the part of Algorithm 1 in the article that applies PINV directly to
+    the ARGUS density for chi <= 5. It is faster than ArgusGamma
+    for small values of chi. For numerical accuracy, it is recommended to use
+    ArgusGamma for chi > 5 instead of ArgusDirect.
+    """
+    def __init__(self, chi, uerror=1e-10, seed=None):
+        # set uniform random number generator. there is no need to pass it to
+        # NumericalInversePolynomial since we never use its rvs method
+        # it just allows to fix the seed of the generator used in self.rvs
+        self._urng = np.random.default_rng(seed)
+
+        if chi <= 0:
+            raise ValueError('chi must be > 0')
+        self.chi = chi
+
+        dist = ArgusDist(self.chi)
+        self._gen = NumericalInversePolynomial(
+            dist,
+            domain=(0, 1),
+            u_resolution=uerror
+        )
+
+    def rvs(self, size=1, seed=None):
+        if seed is None:
+            rng = self._urng
+        else:
+            rng = np.random.default_rng(seed)
+        u = rng.uniform(size=size)
+        return self._gen.ppf(u)
+
+
+# -----------------------------------------------------------------------------
+# Inversion (Algorithm 2)
+# -----------------------------------------------------------------------------
 
 class ArgusGeneral:
     """ This is the main algorithm (Algorithm 2) that can be used to sample
@@ -134,7 +209,7 @@ class ArgusVarPar:
             dist,
             center=0.5,
             domain=(0, np.infty),
-            u_resolution=uerror*0.1
+            u_resolution=uerror
         )
 
         # PINV to be used for [0.1, 1] => condition Gamma on 0.5
@@ -228,71 +303,114 @@ class ArgusVarPar:
         return np.sqrt(1.0 - 2*y/(chiv*chiv))
 
 
-class ArgusGamma:
-    """ This is the algorithm that can be used for fixed values of chi.
-    It is more robust than ArgusDirect for large values of chi.
-    It is the part of Algorithm 1 in the paper that is used for chi > 5.
+# -----------------------------------------------------------------------------
+# Ratio-of-Uniforms with mode shift (Algorithm 3)
+# -----------------------------------------------------------------------------
+
+# taken from from scipy._lib._util
+def _lazywhere(cond, arrays, f, fillvalue=None, f2=None):
     """
-    def __init__(self, chi, uerror=1e-10, seed=None):
-        # set uniform random number generator. there is no need to pass it to
-        # NumericalInversePolynomial since we never use its rvs method
-        # it just allows to fix the seed of the generator used in self.rvs
+    np.where(cond, x, fillvalue) always evaluates x even where cond is False.
+    This one only evaluates f(arr1[cond], arr2[cond], ...).
+    Examples
+    --------
+    >>> a, b = np.array([1, 2, 3, 4]), np.array([5, 6, 7, 8])
+    >>> def f(a, b):
+    ...     return a*b
+    >>> _lazywhere(a > 2, (a, b), f, np.nan)
+    array([ nan,  nan,  21.,  32.])
+    Notice, it assumes that all `arrays` are of the same shape, or can be
+    broadcasted together.
+    """
+    if fillvalue is None:
+        if f2 is None:
+            raise ValueError("One of (fillvalue, f2) must be given.")
+        else:
+            fillvalue = np.nan
+    else:
+        if f2 is not None:
+            raise ValueError("Only one of (fillvalue, f2) can be given.")
+
+    cond = np.asarray(cond)
+    arrays = np.broadcast_arrays(*arrays)
+    temp = tuple(np.extract(cond, arr) for arr in arrays)
+    tcode = np.mintypecode([a.dtype.char for a in arrays])
+    out = np.full(np.shape(arrays[0]), fill_value=fillvalue, dtype=tcode)
+    np.place(out, cond, f(*temp))
+    if f2 is not None:
+        temp = tuple(np.extract(~cond, arr) for arr in arrays)
+        np.place(out, ~cond, f2(*temp))
+
+    return out
+
+
+def _get_rect_rou_shifted_gamma(chi):
+    def _sqrt_f(x):
+        return x**0.25 * np.exp(-x/2)
+
+    chi2 = chi * chi
+    if chi >= 1:
+        m = 0.5
+    else:
+        m = chi2 / 2
+
+    if chi >= 1:
+        x_max = min(1.5 + np.sqrt(2), chi2 / 2)
+        x_min = 1.5 - np.sqrt(2)
+        vmax = (x_max - m) * _sqrt_f(x_max)
+    else:
+        vmax = 0
+        x_min = m/2 - np.sqrt(4*m**2 + 12*m + 25)/4 + 5/4
+
+    umax = _sqrt_f(m)
+    vmin = (x_min - m) * _sqrt_f(x_min)
+
+    return umax, vmin, vmax
+
+
+class ArgusROU:
+    def __init__(self, chi, seed=None):
         self._urng = np.random.default_rng(seed)
-
-        if chi <= 0:
-            raise ValueError('chi must be > 0')
         self.chi = chi
-        self.ub = chi*chi/2.0
+        chi2 = chi * chi
+        self.chi2 = chi2
+        if chi >= 1:
+            self.m = 0.5
+        else:
+            self.m = chi2 / 2
+        umax, vmin, vmax = _get_rect_rou_shifted_gamma(chi)
+        self.umax = umax
+        self.vmin = vmin
+        self.vmax = vmax
 
-        dist = GammaDist(1.5)
-        self._gen = NumericalInversePolynomial(
-            dist,
-            domain=(0, self.ub),
-            u_resolution=uerror
-        )
+
+    def qpdf(self, x):
+        return _lazywhere((x >= 0) & (x <= self.chi2 / 2), (x, self.chi),
+                          lambda x, chi: np.exp(0.5*np.log(x) - x), 0)
 
     def rvs(self, size=1, seed=None):
-        if seed is None:
-            rng = self._urng
+        if seed is not None:
+            rg = np.random.default_rng(seed)
         else:
-            rng = np.random.default_rng(seed)
-        # generate ARGUS(chi) rvs by transforming conditioned Gamma rvs
-        u = rng.uniform(size=size)
-        y = self._gen.ppf(u)
-        return np.sqrt(1.0 - y/self.ub)
+            rg = self._urng
 
+        size1d = tuple(np.atleast_1d(size))
+        N = np.prod(size1d)
+        y = np.zeros(N)
+        simulated = 0
+        while simulated < N:
+            k = N - simulated
+            u1 = self.umax * rg.uniform(size=k)
+            v1 = rg.uniform(self.vmin, self.vmax, size=k)
+            rvs = v1 / u1 + self.m
+            accept = (u1**2 <= self.qpdf(rvs))
+            num_accept = np.sum(accept)
+            if num_accept > 0:
+                y[simulated:(simulated + num_accept)] = rvs[accept]
+                simulated += num_accept
+        z = np.sqrt(1 - 2*y/self.chi2)
+        return np.reshape(z, size1d)
 
-class ArgusDirect:
-    """ This is the algorithm that can be used for fixed values of chi.
-    It is the part of Algorithm 1 in the article that applies PINV directly to
-    the ARGUS density for chi <= 5. It is faster than ArgusGamma
-    for small values of chi. For numerical accuracy, it is recommended to use
-    ArgusGamma for chi > 5 instead of ArgusDirect.
-    """
-    def __init__(self, chi, uerror=1e-10, seed=None):
-        # set uniform random number generator. there is no need to pass it to
-        # NumericalInversePolynomial since we never use its rvs method
-        # it just allows to fix the seed of the generator used in self.rvs
-        self._urng = np.random.default_rng(seed)
-
-        if chi <= 0:
-            raise ValueError('chi must be > 0')
-        self.chi = chi
-
-        dist = ArgusDist(self.chi)
-        self._gen = NumericalInversePolynomial(
-            dist,
-            domain=(0, 1),
-            u_resolution=uerror
-        )
-
-    def rvs(self, size=1, seed=None):
-        if seed is None:
-            rng = self._urng
-        else:
-            rng = np.random.default_rng(seed)
-        u = rng.uniform(size=size)
-        return self._gen.ppf(u)
 
 ###############################################################################
 ### some examples of how to use the algorithms ################################
@@ -337,7 +455,7 @@ for chi in [1e-6, 0.001, 0.05, 0.5, 3.5, 7]:
 gen = ArgusVarPar(uerror=1e-10)
 rng = np.random.default_rng()
 
-def cdf_argus(x=0.5,chi=1):
+def cdf_argus(x, chi):
     return 1.0 - gammainc(1.5, 0.5*chi*chi*(1-x*x))/gammainc(1.5, 0.5*chi*chi)
 
 def check_uerror_time(n, chi_min=0., chi_max=6.):
@@ -372,5 +490,13 @@ y = gen.rvs(chi_arr)
 # first column contains the rvs for chi=0.1, second for 1.3, third for 3.5
 for i, chi in enumerate(chis):
     plt.hist(y[:, i], bins=20, density=True)
+    plt.plot(x, stats.argus.pdf(x, chi))
+    plt.show()
+
+# use Ratio-of-Uniforms method
+for chi in [0.75, 2.1]:
+    gen = ArgusROU(chi)
+    r = gen.rvs(size=1000)
+    plt.hist(r, bins=20, density=True)
     plt.plot(x, stats.argus.pdf(x, chi))
     plt.show()
