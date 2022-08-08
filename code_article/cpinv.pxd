@@ -1,4 +1,4 @@
-cdef extern from "unuran/include/unuran.h":
+cdef extern from "../unuran/include/unuran.h":
 
     cdef struct unur_distr
 

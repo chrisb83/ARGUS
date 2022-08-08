@@ -1,5 +1,6 @@
 img/
 code/unuran/
+unuran/
 *.c
 *.html
 *.tex
