@@ -15,10 +15,12 @@ Instructions can be found on the page https://statmath.wu.ac.at/unuran/doc/unura
 
 ## Information on the repository
 
-- *code* contains Python and Cython code to generate ARGUS random variates, code used to analyze the performance and to check the histograms of the samples against the density . To use the Cython code, you need to have Cython installed and to compile the pyx-file (`python setup.py build_ext --inplace`). If UNU.RAN should be use, you need to link the library before compiling the code by setting the environment variable `$LD_LIBRARY_PATH` by entering `export LD_LIBRARY_PATH=/home/.../code/unuran/lib:/usr/lib` in your command line (adjust the paths to align with your installation path of UNU.RAN)
-- *code* contains a sub-folder *simple_version* that relies on SciPy >= 1.8.0 that included UNU.RAN. It contains fast algorithms relying on Python only.
-- *tables* contains the results of the performance analysis
-- the file `env.yml` contains the Python environment used for all analysis / testing
+- `code_article` contains Python and Cython code that was used to prepare the publication. It contains functions to generate ARGUS random variates, to analyze the performance and to check the histograms of the samples against the density. To use the Cython code, you need to have Cython installed and to compile the pyx-file (`python setup.py build_ext --inplace`). If UNU.RAN should be use, you need to link the library before compiling the code by setting the environment variable `$LD_LIBRARY_PATH` by entering `export LD_LIBRARY_PATH=/home/.../code/unuran/lib:/usr/lib` in your command line (adjust the paths to align with your installation path of UNU.RAN). It is not recommend to work with this code, instead use the one in the folder *code_simplified*, see the next point.
+- `code_simplified` contains the main algorithms.
+  - The easiest approach is to use the Python code in `main_algos.py`. For the inversion algorithms (Algorithms 1 and 2), it relies on SciPy >= 1.8.0 that includes UNU.RAN. The RoU algorithm (Algorithm 3) also works with older versions of SciPy.
+  - The Cython code in `main_algos_cython.pyx` contains the same algorithms implemented in Cython. As before, it requires installing UNU.RAN and compilation of the Cython code (see the guidance above).
+- `tables` contains the results of the performance analysis with the code in `code_article`
+- the file `env.yml` contains the Python environment used for all analysis / testing of the code in `code_article`
 
 ## Wrapping a C library with Cython
 
