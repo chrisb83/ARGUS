@@ -1,7 +1,6 @@
 # This is a pure Python implementation of Algorithms 1, 2 and 3 in the article
 # Algorithms 1 and 2 require SciPy >= 1.8.0, Algorithm 3 does not
 # examples of how to use the algorithms are provided at the end of the file
-from http.client import UnimplementedFileMode
 import numpy as np
 import math
 from scipy import stats
@@ -416,6 +415,10 @@ class ArgusROU:
 ### some examples of how to use the algorithms ################################
 ###############################################################################
 
+# define the cdf (for evaluation of the u-error)
+def cdf_argus(x, chi):
+    return 1.0 - gammainc(1.5, 0.5*chi*chi*(1-x*x))/gammainc(1.5, 0.5*chi*chi)
+
 # create some histograms for different values of chi
 
 import matplotlib.pyplot as plt
@@ -423,13 +426,36 @@ import time
 
 x = np.linspace(1e-5, 0.999, num=100)
 gen = ArgusGeneral()
-for chi in [1e-6, 0.001, 0.05, 0.5, 3.5, 7]:
-    r = gen.rvs(chi, size=10000)
+for chi in [1e-6, 0.001, 0.009, 0.05, 0.5, 3.5, 7]:
+    r = gen.rvs(chi, size=10000, seed=123)
     plt.hist(r, bins=20, density=True)
     plt.plot(x, stats.argus.pdf(x, chi))
     plt.show()
 
+# evaluate the u-error
+for chi in [1e-6, 1e-5, 0.001, 0.0099, 0.05, 0.5, 1.0, 3.5, 7, 15]:
+    r = gen.rvs(chi, size=100000, seed=123)
+    Fy = cdf_argus(r, chi=chi)
+    urng = np.random.default_rng(seed=123)
+    u = urng.uniform(size=100000)
+    # note: need 1-u since rvs uses 1 - Uniform, which is again uniformly
+    # distributed
+    print(f"the maximal observed u-error for chi={chi}=", max(np.abs(1-u-Fy)))
+
+
 gen = ArgusVarPar()
+# give an example of how to sample for different chi in one go using ArgusVarPar
+chis = [0.1, 1.3, 3.5]
+chi_arr = np.array(chis) * np.ones((1000, 3))
+y = gen.rvs(chi_arr)
+
+# first column contains the rvs for chi=0.1, second for 1.3, third for 3.5
+for i, chi in enumerate(chis):
+    plt.hist(y[:, i], bins=20, density=True)
+    plt.plot(x, stats.argus.pdf(x, chi))
+    plt.show()
+
+# one can also sample for different chi one by one w/o running the setup again
 for chi in [1e-6, 0.005, 0.05, 0.5, 1, 3]:
     chiv = chi*np.ones(10000)
     y = gen.rvs(chiv=chiv)
@@ -437,6 +463,7 @@ for chi in [1e-6, 0.005, 0.05, 0.5, 1, 3]:
     plt.plot(x, stats.argus.pdf(x, chi))
     plt.show()
 
+# fixed parameter case
 for chi in [1e-6, 0.001, 0.05, 0.5, 3.5, 7]:
     gen = ArgusDirect(chi)
     r = gen.rvs(size=10000)
@@ -455,8 +482,6 @@ for chi in [1e-6, 0.001, 0.05, 0.5, 3.5, 7]:
 gen = ArgusVarPar(uerror=1e-10)
 rng = np.random.default_rng()
 
-def cdf_argus(x, chi):
-    return 1.0 - gammainc(1.5, 0.5*chi*chi*(1-x*x))/gammainc(1.5, 0.5*chi*chi)
 
 def check_uerror_time(n, chi_min=0., chi_max=6.):
     """
@@ -482,21 +507,10 @@ check_uerror_time(n=N, chi_min=0.1, chi_max=1.)
 check_uerror_time(n=N, chi_min=0.01, chi_max=0.1)
 check_uerror_time(n=N, chi_min=0., chi_max=0.01)
 
-# give an example of how to sample for different chi in one go using ArgusVarPar
-chis = [0.1, 1.3, 3.5]
-chi_arr = np.array(chis) * np.ones((1000, 3))
-y = gen.rvs(chi_arr)
-
-# first column contains the rvs for chi=0.1, second for 1.3, third for 3.5
-for i, chi in enumerate(chis):
-    plt.hist(y[:, i], bins=20, density=True)
-    plt.plot(x, stats.argus.pdf(x, chi))
-    plt.show()
-
 # use Ratio-of-Uniforms method
 for chi in [0.75, 2.1]:
     gen = ArgusROU(chi)
-    r = gen.rvs(size=1000)
+    r = gen.rvs(size=5000)
     plt.hist(r, bins=20, density=True)
     plt.plot(x, stats.argus.pdf(x, chi))
     plt.show()
