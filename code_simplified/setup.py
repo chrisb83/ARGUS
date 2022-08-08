@@ -8,8 +8,8 @@ ext_modules = [
         name="argus_cy",
         sources=["main_algos_cython.pyx"],
         libraries=["unuran"],
-        library_dirs=["/home/christoph/Documents/scipydev/ARGUS/code/unuran/lib"],
-        include_dirs=["/home/christoph/Documents/scipydev/ARGUS/code/unuran/include",
+        library_dirs=["../unuran/lib"],
+        include_dirs=["../unuran/include",
                       numpy.get_include()])
 ]
 

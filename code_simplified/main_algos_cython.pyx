@@ -254,48 +254,55 @@ cdef class argus_pinv:
 
         return np.asarray(random_values)
 
-def rvs_varying(self, double[:] params):
-    cdef double u, ub, c, y, chi, v, sqrt2pi
-    cdef Py_ssize_t i, N
-    cdef bitgen_t *rng
-    cdef const char *capsule_name = "BitGenerator"
-    cdef double[::1] random_values
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    def rvs_varying(self, params):
+        cdef double u, ub, c, y, chi, v, sqrt2pi
+        cdef Py_ssize_t i, N
+        cdef bitgen_t *rng
+        cdef const char *capsule_name = "BitGenerator"
+        cdef double[::1] random_values
+        cdef double[::1] params_1d
 
-    x = PCG64()
-    capsule = x.capsule
-    # Optional check that the capsule if from a BitGenerator
-    if not PyCapsule_IsValid(capsule, capsule_name):
-        raise ValueError("Invalid pointer to anon_func_state")
-    # Cast the pointer
-    rng = <bitgen_t *> PyCapsule_GetPointer(capsule, capsule_name)
-    random_values = np.empty(size, dtype='float64')
+        params_arr = np.array(params)
+        params_1d = params_arr.ravel()
 
-    v = 0.0
-    sqrt2pi = math.sqrt(2.0/math.M_PI)
-    # generate ARGUS(chi) rvs by transforming conditioned Gamma rvs
-    N = params.size
-    for i in range(N):
-        chi = params[i]
-        ub = chi*chi / 2.0
-        c = cython_special.erf(chi/math.sqrt(2)) - chi*math.exp(-ub)*sqrt2pi
-        if chi > 1.e-5 and chi <= 0.01:
-            v = math.sqrt(2.0*math.pi)*c/(2.0*ub*chi)
-        u = rng.next_double(rng.state)
-        if chi <= 0.01:
-            y = ub * math.pow(u, 2./3.)
-            if chi > 1.e-5:
-                # do a single Newton iteration
-                ey = 1.0 + y*(1.0 + y*(0.5 + y/6.0))
-                y = y*(ey*(1.0/3.0 - 0.1*y + v) - y*(0.5 + y/6.0))
-        elif chi <= 0.1:
-            y = cpinv.unur_pinv_eval_approxinvcdf(self._gen2, c*u/self.c2)
-        elif chi <= 1.0:
-            y = cpinv.unur_pinv_eval_approxinvcdf(self._gen1, c*u/self.c1)
-        else:
-            y = cpinv.unur_pinv_eval_approxinvcdf(self._gen0, c*u)
-        random_values[i] = math.sqrt(1.0 - y/ub)
+        x = PCG64()
+        capsule = x.capsule
+        # Optional check that the capsule if from a BitGenerator
+        if not PyCapsule_IsValid(capsule, capsule_name):
+            raise ValueError("Invalid pointer to anon_func_state")
+        # Cast the pointer
+        rng = <bitgen_t *> PyCapsule_GetPointer(capsule, capsule_name)
+        N = len(params_1d)
+        random_values = np.empty(N, dtype='float64')
 
-    return np.asarray(random_values).reshape(params.shape)
+        v = 0.0
+        sqrt2pi = math.sqrt(2.0/math.M_PI)
+        # generate ARGUS(chi) rvs by transforming conditioned Gamma rvs
+        for i in range(N):
+            chi = params_1d[i]
+            ub = chi*chi / 2.0
+            c = cython_special.erf(chi/math.sqrt(2)) - chi*math.exp(-ub)*sqrt2pi
+            if chi > 1.e-5 and chi <= 0.01:
+                v = math.sqrt(2.0*math.pi)*c/(2.0*ub*chi)
+            u = rng.next_double(rng.state)
+            if chi <= 0.01:
+                y = ub * math.pow(u, 2./3.)
+                if chi > 1.e-5:
+                    # do a single Newton iteration
+                    ey = 1.0 + y*(1.0 + y*(0.5 + y/6.0))
+                    y = y*(ey*(1.0/3.0 - 0.1*y + v) - y*(0.5 + y/6.0))
+            elif chi <= 0.1:
+                y = cpinv.unur_pinv_eval_approxinvcdf(self._gen2, c*u/self.c2)
+            elif chi <= 1.0:
+                y = cpinv.unur_pinv_eval_approxinvcdf(self._gen1, c*u/self.c1)
+            else:
+                y = cpinv.unur_pinv_eval_approxinvcdf(self._gen0, c*u)
+            random_values[i] = math.sqrt(1.0 - y/ub)
+
+        return np.asarray(random_values).reshape(params_arr.shape)
 
 
 # -----------------------------------------------------------------------------
