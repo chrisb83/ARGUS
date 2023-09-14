@@ -8,7 +8,7 @@ for each algorithm (csv and tex)
 import numpy as np
 import pandas as pd
 import time
-from _utils import check_runtime, check_runtime_fixed, time_rvs
+from _utils import check_runtime, check_runtime_fixed, time_rvs, check_runtime_range
 from rejection import rvs_rejection_xexp, rvs_rejection_beta
 from rou_maxwell import  rvs_rou_maxwell, rvs_rou_shifted_maxwell
 from rou_gamma import rvs_rou_gamma, rvs_rou_shifted_gamma
@@ -149,11 +149,19 @@ argus = pinv_test()
 fcts = {argus.test_varying: 'PINV (Gamma)',
         test_rou_shifted_gamma_varying: 'RoU shifted (Gamma)'}
 lst = []
-chi_lst = [0.0001, 0.5, 1.0, 2.5]
+chi_lst = [1e-6, 0.0001, 0.005, 0.5, 1.0, 2.5, 5, 10]
 df_var = check_runtime(fcts, chi_lst, cfg, print_output=True, varying=True)
 df_var['Language'] = 'Cython'
 df_var.to_csv("../tables/argus_generation_times_varying.csv")
 df_var.to_latex("../tables/argus_generation_times_varying.tex")
+
+df_range = check_runtime_range(
+        fcts, chi_range=(0, 10), N=1_000_000, rep=100, print_output=True
+)
+df_range['Language'] = 'Cython'
+df_range.to_csv("../tables/argus_generation_times_varying_range.csv")
+df_range.to_latex("../tables/argus_generation_times_varying_range.tex")
+
 
 # -----------------------------------------------------------------------------
 # take beta, gamma and chisquare in NumpPy as a benchmark

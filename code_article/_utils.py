@@ -33,6 +33,21 @@ def time_rvs_varying(func, chi, N, rep=20, seed=None):
     return t.mean(), t.std()
 
 
+def time_rvs_varying_range(func, chi_range, N, rep=20, seed=None):
+    if seed is not None:
+        np.random.seed(seed)
+    lst = []
+    # sample params uniformly over chi_range
+    u = np.random.uniform(size=N)
+    params = chi_range[0] + (chi_range[1] - chi_range[0]) * u
+    for i in range(rep):
+        tic = time.time()
+        r = func(params, size=N)
+        lst.append(time.time() - tic)
+    t = np.array(lst)
+    return t.mean(), t.std()
+
+
 def check_runtime(fcts, chi_lst, cfg, print_output=False, varying=False):
     df_lst = []
     for N in cfg.keys():
@@ -115,6 +130,26 @@ def check_runtime_fixed(cls_dict, chi_lst, cfg, print_output=False):
         df_lst.append(df_temp)
 
     return pd.concat(df_lst)
+
+
+def check_runtime_range(fcts, chi_range, N, rep, print_output=False):
+    res = {}
+    if print_output:
+        print('Starting test with N={}'.format(N))
+    for fct, fct_name in fcts.items():
+        if print_output:
+            print(fct_name)
+        m, s = time_rvs_varying_range(fct, chi_range, N, rep=rep)
+        if print_output:
+            print("chi_range = {}: {} +/- {}".format(chi_range, round(m, 3), round(s, 3)))
+        m, s = int(round(m*1000)), int(round(s*1000))
+        res[fct_name] = {'mean': m, 'std': s}
+
+    df_temp = pd.DataFrame.from_dict(res, orient='index')
+    df_temp['N'] = N
+    df_temp['iter'] = rep
+    print(df_temp)
+    return df_temp
 
 
 # taken from from scipy._lib._util
