@@ -149,7 +149,7 @@ argus = pinv_test()
 fcts = {argus.test_varying: 'PINV (Gamma)',
         test_rou_shifted_gamma_varying: 'RoU shifted (Gamma)'}
 lst = []
-chi_lst = [1e-6, 0.0001, 0.005, 0.5, 1.0, 2.5, 5, 10]
+chi_lst = [1e-6, 0.0001, 0.005, 0.05, 0.5, 1.0, 2.5, 5, 10]
 df_var = check_runtime(fcts, chi_lst, cfg, print_output=True, varying=True)
 df_var['Language'] = 'Cython'
 df_var.to_csv("../tables/argus_generation_times_varying.csv")
