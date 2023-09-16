@@ -8,6 +8,7 @@ check_runtime <- function() {
   print("benchmark: generate ARGUS rvs by inversion using qgamma")
   chi <- 1.0
   n_reps <- 21
+  n <- 1.e6
   x <- vector("numeric", n_reps)
   
   for (i in seq_along(x)) {
@@ -20,7 +21,7 @@ check_runtime <- function() {
     toc <- Sys.time() - tic
     x[i] <- toc
   }
-  # drop first entry, it is often a distorted value 
+  # drop first entry, it is distorted by the setup step
   x <- x[2:n_reps]
   print(c(min(x), median(x), mean(x), sd(x)))
   
@@ -38,7 +39,6 @@ check_runtime <- function() {
   chi_range <- c(0, 10)
   n_reps <- 51
   x <- vector("numeric", n_reps)
-  n <- 1.e6
   for (i in seq_along(x)) {
     chiv <- chi_range[1] + (chi_range[2] - chi_range[1])*runif(n) # values in chi_range
     tic <- Sys.time()
@@ -55,7 +55,7 @@ check_runtime <- function() {
   # -----------------------------------------------------------------------------
   
   print("varying parameter case for various parameters ([0.99chi, 1.01chi])")
-  chis <- c(1e-6, 0.0001, 0.005, 0.5, 1.0, 2.5, 5, 10)
+  chis <- c(1e-6, 0.0001, 0.005, 0.05, 0.5, 1.0, 2.5, 5, 10)
   n_reps <- 21
   for (chi in chis) {
     x <- vector("numeric", n_reps)
