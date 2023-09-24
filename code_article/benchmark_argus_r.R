@@ -7,7 +7,7 @@ check_runtime <- function() {
   
   print("benchmark: generate ARGUS rvs by inversion using qgamma")
   chi <- 1.0
-  n_reps <- 21
+  n_reps <- 101
   n <- 1.e6
   x <- vector("numeric", n_reps)
   
@@ -37,7 +37,7 @@ check_runtime <- function() {
   
   print("varying parameter case for a large range of parameters (0, 10)")
   chi_range <- c(0, 10)
-  n_reps <- 51
+  n_reps <- 101
   x <- vector("numeric", n_reps)
   for (i in seq_along(x)) {
     chiv <- chi_range[1] + (chi_range[2] - chi_range[1])*runif(n) # values in chi_range
@@ -56,7 +56,7 @@ check_runtime <- function() {
   
   print("varying parameter case for various parameters ([0.99chi, 1.01chi])")
   chis <- c(1e-6, 0.0001, 0.005, 0.05, 0.5, 1.0, 2.5, 5, 10)
-  n_reps <- 21
+  n_reps <- 101
   for (chi in chis) {
     x <- vector("numeric", n_reps)
     print(chi)
